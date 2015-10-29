@@ -17,12 +17,5 @@ namespace automerge
 
             changeset = comparer.Compare();
         }
-
-
-        public static IEnumerable<T> GenerateCollection<T>(Func<bool> condition, Func<T> generator)
-        {
-            while (condition())
-                yield return generator();
-        }
     }
 }

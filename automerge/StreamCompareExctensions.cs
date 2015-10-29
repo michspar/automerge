@@ -16,7 +16,8 @@ namespace automerge
 
         public static IEnumerable<string> ReadAllComparableUnits(this StreamReader stream)
         {
-            return Program.GenerateCollection(() => !stream.EndOfStream, () => stream.ReadComparableUnit());
+            while (!stream.EndOfStream)
+                yield return stream.ReadComparableUnit();
         }
     }
 }
