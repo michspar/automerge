@@ -5,40 +5,71 @@ using System.Linq;
 
 namespace automerge
 {
-    internal class StreamComparer
+    public class StreamComparer
     {
-        private StreamReader stream1;
-        private StreamReader stream2;
+        private StreamReader streamLeft, streamRight;
+        private string left, right;
+        int iLine = -1;
 
-        public StreamComparer(FileStream fileStream1, FileStream fileStream2)
+        public StreamComparer(Stream streamLeft, Stream streamRight)
         {
-            this.stream1 = new StreamReader(fileStream1);
-            this.stream2 = new StreamReader(fileStream2);
+            this.streamLeft = new StreamReader(streamLeft);
+            this.streamRight = new StreamReader(streamRight);
+        }
+
+        bool AdvanceRead()
+        {
+            if (streamLeft.EndOfStream || streamRight.EndOfStream)
+                return false;
+
+            left = streamLeft.ReadComparableUnit();
+            right = streamRight.ReadComparableUnit();
+            iLine++;
+
+            return true;
         }
 
         public Tuple<int, string, string>[] Compare()
         {
             var changes = new List<Tuple<int, string, string>>();
 
-            if (stream1.EndOfStream && stream2.EndOfStream)
+            if (streamLeft.EndOfStream && streamRight.EndOfStream)
                 return changes.ToArray();
 
-            if (stream1.EndOfStream)
-                return stream2.ReadAllComparableUnits().Select((ch, i) => Tuple.Create(i, "", ch)).ToArray();
-            
-            if (stream2.EndOfStream)
-                return stream1.ReadAllComparableUnits().Select((ch, i) => Tuple.Create(i, ch, "")).ToArray();
+            if (ReadToEnd(changes))
+                return changes.ToArray();
 
-            var line1 = stream1.ReadComparableUnit();
-            var line2 = stream2.ReadComparableUnit();
-
-            while (!stream1.EndOfStream && !stream2.EndOfStream && line1 == line2)
+            while (AdvanceRead())
             {
-                line1 = stream1.ReadComparableUnit();
-                line2 = stream2.ReadComparableUnit();
+                while (!streamLeft.EndOfStream && !streamRight.EndOfStream && left == right)
+                    AdvanceRead();
+
+                if (left == right && ReadToEnd(changes))
+                    return changes.ToArray();
+
+                changes.Add(Tuple.Create(iLine, left, right));
             }
 
             return changes.ToArray();
+        }
+
+        bool ReadToEnd(List<Tuple<int, string, string>> changes)
+        {
+            if (streamLeft.EndOfStream)
+            {
+                changes.AddRange(streamRight.ReadAllComparableUnits().Select(ch => Tuple.Create(++iLine, (string)null, ch)));
+
+                return true;
+            }
+
+            if (streamRight.EndOfStream)
+            {
+                changes.AddRange(streamLeft.ReadAllComparableUnits().Select(ch => Tuple.Create(++iLine, ch, (string)null)));
+
+                return true;
+            }
+
+            return false;
         }
     }
 }
