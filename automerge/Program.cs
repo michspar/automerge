@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace automerge
 {
     using System.Dynamic;
-    using Change = Tuple<int, string, string>;
+    using Change = Tuple<int, int, string, string>;
 
     class Program
     {
@@ -16,11 +16,13 @@ namespace automerge
 
         static void Main(string[] args)
         {
-            using (var comparer = new StreamComparer(File.OpenRead(args[0]), File.OpenRead(args[1])))
-                changeset1 = comparer.Compare();
+            var comparer = new StreamComparer(File.OpenRead(args[0]), File.OpenRead(args[1]));
 
-            using (var comparer = new StreamComparer(File.OpenRead(args[0]), File.OpenRead(args[2])))
-                changeset2 = comparer.Compare();
+            changeset1 = comparer.Compare();
+
+            comparer = new StreamComparer(File.OpenRead(args[0]), File.OpenRead(args[2]));
+
+            changeset2 = comparer.Compare();
 
             var autochanges = changeset1.Except(changeset2, new ConflictChangesComparer()).Union(changeset2.Except(changeset1, new ConflictChangesComparer())).ToArray();
         }

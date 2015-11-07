@@ -5,79 +5,65 @@ using System.Linq;
 
 namespace automerge
 {
-    using Change = Tuple<int, string, string>;
+    using Change = Tuple<int, int, string, string>;
 
-    public class StreamComparer : IDisposable
+    public class StreamComparer
     {
-        private StreamReader streamLeft, streamRight;
-        private string left, right;
-        int iLine = -1;
+        private string[] linesLeft, linesRight;
+        private Dictionary<string, int> dictLeft, dictRight;
 
         public StreamComparer(Stream streamLeft, Stream streamRight)
         {
-            this.streamLeft = new StreamReader(streamLeft);
-            this.streamRight = new StreamReader(streamRight);
-        }
-
-        bool AdvanceRead()
-        {
-            if (streamLeft.EndOfStream || streamRight.EndOfStream)
-                return false;
-
-            left = streamLeft.ReadComparableUnit();
-            right = streamRight.ReadComparableUnit();
-            iLine++;
-
-            return true;
+            linesLeft = new StreamReader(streamLeft).ReadAllComparableUnits().ToArray();
+            linesRight = new StreamReader(streamRight).ReadAllComparableUnits().ToArray();
+            dictLeft = getLinesToIndexesDictionary(linesLeft);
+            dictRight = getLinesToIndexesDictionary(linesRight);
         }
 
         public Change[] Compare()
         {
-            var changes = new List<Change>();
+            var sameLines = linesLeft.Intersect(linesRight);
+            var excludeIndexes = sameLines.SelectMany(l => new[] { dictLeft[l], dictRight[l] }).Distinct();
+            var includeIndexes = Enumerable.Range(0, Math.Min(linesLeft.Length, linesRight.Length)).Except(excludeIndexes);
+            var movedLines = findMovedLines(sameLines);
+            var changedLines = findChangedLines(includeIndexes);
+            var newLines = findNewLines(sameLines, includeIndexes);
 
-            if (streamLeft.EndOfStream && streamRight.EndOfStream)
-                return changes.ToArray();
-
-            if (ReadToEnd(changes))
-                return changes.ToArray();
-
-            while (AdvanceRead())
-            {
-                while (!streamLeft.EndOfStream && !streamRight.EndOfStream && left == right)
-                    AdvanceRead();
-
-                if (left == right && ReadToEnd(changes))
-                    return changes.ToArray();
-
-                changes.Add(Tuple.Create(iLine, left, right));
-            }
-
-            return changes.ToArray();
+            return movedLines.Concat(changedLines).Concat(newLines).OrderBy(l => l.Item1).ToArray();
         }
 
-        bool ReadToEnd(List<Change> changes)
+        IEnumerable<Change> findNewLines(IEnumerable<string> sameLines, IEnumerable<int> includeIndexes)
         {
-            if (streamLeft.EndOfStream)
-            {
-                changes.AddRange(streamRight.ReadAllComparableUnits().Select(ch => Tuple.Create(++iLine, (string)null, ch)));
+            var leftNewLines = linesLeft.Where((l, i) => !includeIndexes.Contains(i));
+            var rightNewLines = linesRight.Where((l, i) => !includeIndexes.Contains(i));
+            var newLines = leftNewLines.Union(rightNewLines).Where(l => !sameLines.Contains(l));
 
-                return true;
-            }
-
-            if (streamRight.EndOfStream)
-            {
-                changes.AddRange(streamLeft.ReadAllComparableUnits().Select(ch => Tuple.Create(++iLine, ch, (string)null)));
-
-                return true;
-            }
-
-            return false;
+            return newLines.Select(l => Tuple.Create(dictionaryValueOrDefault(dictLeft, l, -1), dictionaryValueOrDefault(dictRight, l, -1), dictLeft.ContainsKey(l) ? l : null, dictRight.ContainsKey(l) ? l : null));
         }
 
-        public void Dispose()
+        IEnumerable<Change> findChangedLines(IEnumerable<int> includeIndexes)
         {
-            streamLeft.Dispose();
-            streamRight.Dispose();
+            return includeIndexes.Select(i => Tuple.Create(i, i, linesLeft[i], linesRight[i]));
+        }
+
+        IEnumerable<Change> findMovedLines(IEnumerable<string> sameLines)
+        {
+            return sameLines.Select(l => Tuple.Create(dictLeft[l], dictRight[l], l, l)).Where(l => l.Item1 != l.Item2);
+        }
+
+        Dictionary<string, int> getLinesToIndexesDictionary(IEnumerable<string> coll)
+        {
+            return coll.Select((l, i) => Tuple.Create(l, i)).ToDictionary(l => l.Item1, l => l.Item2);
+        }
+
+        TValue dictionaryValueOrDefault<TKey, TValue>(Dictionary<TKey, TValue> dict, TKey key, TValue defaultValue)
+        {
+            TValue rval;
+
+            if (dict.TryGetValue(key, out rval))
+                return rval;
+
+            return defaultValue;
         }
     }
 }

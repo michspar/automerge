@@ -38,8 +38,9 @@ line3"));
 
 
             var comparer = new StreamComparer(left, right);
+            var changeset = comparer.Compare();
 
-            Assert.AreEqual(Tuple.Create(1, "line2", "line4"), comparer.Compare()[0]);
+            Assert.AreEqual(Tuple.Create(1, 1, "line2", "line4"), changeset[0]);
         }
 
         [TestMethod]
@@ -55,8 +56,9 @@ line4"));
 
 
             var comparer = new StreamComparer(left, right);
+            var changeset = comparer.Compare();
 
-            Assert.AreEqual(Tuple.Create(3, (string)null, "line4"), comparer.Compare()[0]);
+            Assert.AreEqual(Tuple.Create(-1, 3, (string)null, "line4"), changeset[0]);
         }
 
         [TestMethod]
@@ -74,7 +76,7 @@ line3"));
             var comparer = new StreamComparer(left, right);
             var changeset = comparer.Compare();
 
-            Assert.AreEqual(Tuple.Create(0, (string)null, "line4"), changeset[0]);
+            Assert.AreEqual(Tuple.Create(-1, 0, (string)null, "line4"), changeset[0]);
         }
 
         [TestMethod]
@@ -90,12 +92,13 @@ line2"));
 
 
             var comparer = new StreamComparer(left, right);
+            var changeset = comparer.Compare();
 
             Assert.IsTrue(new[]
             {
-                Tuple.Create(1, "line2", "line4"),
-                Tuple.Create(3, (string)null, "line2")
-            }.SequenceEqual(comparer.Compare()));
+                Tuple.Create(-1, 1, (string)null, "line4"),
+                Tuple.Create(1, 3, "line2", "line2")
+            }.SequenceEqual(changeset));
         }
     }
 }
