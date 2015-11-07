@@ -1,13 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace automerge
 {
-    using System.Dynamic;
     using Change = Tuple<int, int, string, string>;
 
     class Program

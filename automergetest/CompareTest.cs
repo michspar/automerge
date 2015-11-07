@@ -76,7 +76,13 @@ line3"));
             var comparer = new StreamComparer(left, right);
             var changeset = comparer.Compare();
 
-            Assert.AreEqual(Tuple.Create(-1, 0, (string)null, "line4"), changeset[0]);
+            Assert.IsTrue(new[]
+            {
+                Tuple.Create(-1, 0, (string)null, "line4"),
+                Tuple.Create(0, 1, "line1", "line1"),
+                Tuple.Create(1, 2, "line2", "line2"),
+                Tuple.Create(2, 3, "line3", "line3"),
+            }.SequenceEqual(changeset));
         }
 
         [TestMethod]

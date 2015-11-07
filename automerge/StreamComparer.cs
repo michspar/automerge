@@ -9,61 +9,46 @@ namespace automerge
 
     public class StreamComparer
     {
-        private string[] linesLeft, linesRight;
-        private Dictionary<string, int> dictLeft, dictRight;
+        private List<Tuple<int, string>> linesLeft, linesRight;
 
         public StreamComparer(Stream streamLeft, Stream streamRight)
         {
-            linesLeft = new StreamReader(streamLeft).ReadAllComparableUnits().ToArray();
-            linesRight = new StreamReader(streamRight).ReadAllComparableUnits().ToArray();
-            dictLeft = getLinesToIndexesDictionary(linesLeft);
-            dictRight = getLinesToIndexesDictionary(linesRight);
+            linesLeft = new StreamReader(streamLeft).ReadAllComparableUnits().Select((line, i) => Tuple.Create(i, line)).ToList();
+            linesRight = new StreamReader(streamRight).ReadAllComparableUnits().Select((line, i) => Tuple.Create(i, line)).ToList();
         }
 
         public Change[] Compare()
         {
-            var sameLines = linesLeft.Intersect(linesRight);
-            var excludeIndexes = sameLines.SelectMany(l => new[] { dictLeft[l], dictRight[l] }).Distinct();
-            var includeIndexes = Enumerable.Range(0, Math.Min(linesLeft.Length, linesRight.Length)).Except(excludeIndexes);
-            var movedLines = findMovedLines(sameLines);
-            var changedLines = findChangedLines(includeIndexes);
-            var newLines = findNewLines(sameLines, includeIndexes);
+            var sameLines = getSameLines(false).Where(l => l.Item1 != l.Item2);
+            var changedLines = getSameLines(true);
+            var newLines = getNewLines();
 
-            return movedLines.Concat(changedLines).Concat(newLines).OrderBy(l => l.Item1).ToArray();
+            return /*sameLines.Concat(*/changedLines.Concat(newLines).OrderBy(l => l.Item1 + l.Item2).ToArray();
         }
 
-        IEnumerable<Change> findNewLines(IEnumerable<string> sameLines, IEnumerable<int> includeIndexes)
+        private IEnumerable<Tuple<int, int, string, string>> getSameLines(bool compareIndexes)
         {
-            var leftNewLines = linesLeft.Where((l, i) => !includeIndexes.Contains(i));
-            var rightNewLines = linesRight.Where((l, i) => !includeIndexes.Contains(i));
-            var newLines = leftNewLines.Union(rightNewLines).Where(l => !sameLines.Contains(l));
+            var rval = new List<Tuple<int, int, string, string>>();
 
-            return newLines.Select(l => Tuple.Create(dictionaryValueOrDefault(dictLeft, l, -1), dictionaryValueOrDefault(dictRight, l, -1), dictLeft.ContainsKey(l) ? l : null, dictRight.ContainsKey(l) ? l : null));
+            for (var iLeft = 0; iLeft < linesLeft.Count; iLeft++)
+            {
+                var iRight = compareIndexes ? linesRight.Select(t => t.Item1).ToList().IndexOf(linesLeft[iLeft].Item1) :
+                    linesRight.Select(t => t.Item2).ToList().IndexOf(linesLeft[iLeft].Item2);
+
+                if (iRight == -1)
+                    continue;
+
+                rval.Add(Tuple.Create(linesLeft[iLeft].Item1, linesRight[iRight].Item1, linesLeft[iLeft].Item2, linesRight[iRight].Item2));
+                linesLeft.RemoveAt(iLeft--);
+                linesRight.RemoveAt(iRight);
+            }
+
+            return rval;
         }
 
-        IEnumerable<Change> findChangedLines(IEnumerable<int> includeIndexes)
+        private IEnumerable<Tuple<int, int, string, string>> getNewLines()
         {
-            return includeIndexes.Select(i => Tuple.Create(i, i, linesLeft[i], linesRight[i]));
-        }
-
-        IEnumerable<Change> findMovedLines(IEnumerable<string> sameLines)
-        {
-            return sameLines.Select(l => Tuple.Create(dictLeft[l], dictRight[l], l, l)).Where(l => l.Item1 != l.Item2);
-        }
-
-        Dictionary<string, int> getLinesToIndexesDictionary(IEnumerable<string> coll)
-        {
-            return coll.Select((l, i) => Tuple.Create(l, i)).ToDictionary(l => l.Item1, l => l.Item2);
-        }
-
-        TValue dictionaryValueOrDefault<TKey, TValue>(Dictionary<TKey, TValue> dict, TKey key, TValue defaultValue)
-        {
-            TValue rval;
-
-            if (dict.TryGetValue(key, out rval))
-                return rval;
-
-            return defaultValue;
+            return linesLeft.Select(l => Tuple.Create(l.Item1, -1, l.Item2, (string)null)).Concat(linesRight.Select(l => Tuple.Create(-1, l.Item1, (string)null, l.Item2)));
         }
     }
 }
