@@ -5,7 +5,9 @@ using System.Linq;
 
 namespace automerge
 {
-    public class StreamComparer
+    using Change = Tuple<int, string, string>;
+
+    public class StreamComparer : IDisposable
     {
         private StreamReader streamLeft, streamRight;
         private string left, right;
@@ -29,9 +31,9 @@ namespace automerge
             return true;
         }
 
-        public Tuple<int, string, string>[] Compare()
+        public Change[] Compare()
         {
-            var changes = new List<Tuple<int, string, string>>();
+            var changes = new List<Change>();
 
             if (streamLeft.EndOfStream && streamRight.EndOfStream)
                 return changes.ToArray();
@@ -53,7 +55,7 @@ namespace automerge
             return changes.ToArray();
         }
 
-        bool ReadToEnd(List<Tuple<int, string, string>> changes)
+        bool ReadToEnd(List<Change> changes)
         {
             if (streamLeft.EndOfStream)
             {
@@ -70,6 +72,12 @@ namespace automerge
             }
 
             return false;
+        }
+
+        public void Dispose()
+        {
+            streamLeft.Dispose();
+            streamRight.Dispose();
         }
     }
 }

@@ -60,6 +60,24 @@ line4"));
         }
 
         [TestMethod]
+        public void TestEqualAddLineToBegin()
+        {
+            var left = new MemoryStream(Encoding.Default.GetBytes(@"line1
+line2
+line3"));
+            var right = new MemoryStream(Encoding.Default.GetBytes(@"line4
+line1
+line2
+line3"));
+
+
+            var comparer = new StreamComparer(left, right);
+            var changeset = comparer.Compare();
+
+            Assert.AreEqual(Tuple.Create(0, (string)null, "line4"), changeset[0]);
+        }
+
+        [TestMethod]
         public void TestNotEqualDifferentLen()
         {
             var left = new MemoryStream(Encoding.Default.GetBytes(@"line1

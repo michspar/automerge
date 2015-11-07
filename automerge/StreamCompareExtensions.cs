@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace automerge
 {
-    static class StreamCompareExctensions
+    static class StreamCompareExtensions
     {
         public static string ReadComparableUnit(this StreamReader stream)
         {
