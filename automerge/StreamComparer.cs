@@ -19,14 +19,15 @@ namespace automerge
 
         public Change[] Compare()
         {
-            var sameLines = getSameLines(false).Where(l => l.Item1 != l.Item2);
-            var changedLines = getSameLines(true);
-            var newLines = getNewLines();
+            extractSameLines(false);
 
-            return /*sameLines.Concat(*/changedLines.Concat(newLines).OrderBy(l => l.Item1 + l.Item2).ToArray();
+            var changedLines = extractSameLines(true);
+            var newLines = extractNewLines();
+
+            return changedLines.Concat(newLines).OrderBy(l => l.Item1 + l.Item2).ToArray();
         }
 
-        private IEnumerable<Tuple<int, int, string, string>> getSameLines(bool compareIndexes)
+        private IEnumerable<Tuple<int, int, string, string>> extractSameLines(bool compareIndexes)
         {
             var rval = new List<Tuple<int, int, string, string>>();
 
@@ -46,7 +47,7 @@ namespace automerge
             return rval;
         }
 
-        private IEnumerable<Tuple<int, int, string, string>> getNewLines()
+        private IEnumerable<Tuple<int, int, string, string>> extractNewLines()
         {
             return linesLeft.Select(l => Tuple.Create(l.Item1, -1, l.Item2, (string)null)).Concat(linesRight.Select(l => Tuple.Create(-1, l.Item1, (string)null, l.Item2)));
         }
